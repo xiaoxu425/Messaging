@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecureChat - 端对端加密聊天</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --success: #4cc9f0;
+            --light: #f8f9fa;
+            --dark: #212529;
+            --gray: #6c757d;
+            --dark-bg: #121826;
+            --darker-bg: #0d1117;
+            --card-bg: #1a202c;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--darker-bg), var(--dark-bg));
+            color: var(--light);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .container {
+            max-width: 1200px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        @media (min-width: 992px) {
+            .container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        header {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 20px 0;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, var(--success), var(--primary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .subtitle {
+            color: var(--success);
+            font-size: 1.1rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .chat-card {
+            background: var(--card-bg);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+        }
+        
+        .chat-header {
+            background: rgba(67, 97, 238, 0.15);
+            padding: 15px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--success));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .key-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+        
+        .indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .active {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+        
+        .messages-container {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .message {
+            max-width: 80%;
+            padding: 12px 16px;
+            border-radius: 15px;
+            position: relative;
+            word-break: break-word;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .message.sent {
+            background: var(--primary);
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+        
+        .message.received {
+            background: rgba(76, 201, 240, 0.2);
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+        
+        .message .sender {
+            font-weight: bold;
+            font-size: 0.85rem;
+            margin-bottom: 5px;
+        }
+        
+        .message .time {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            text-align: right;
+            margin-top: 5px;
+        }
+        
+        .input-area {
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            gap: 10px;
+        }
+        
+        .message-input {
+            flex: 1;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+        
+        .message-input:focus {
+            background: rgba(255, 255, 255, 0.15);
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+        
+        .send-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 12px 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .send-btn:hover {
+            background: var(--secondary);
+            transform: translateY(-2px);
+        }
+        
+        .debug-panel {
+            background: var(--card-bg);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            grid-column: 1 / -1;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 300px;
+        }
+        
+        .debug-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .debug-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--success);
+        }
+        
+        .debug-info {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.9rem;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: none;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #e63946;
+        }
+        
+        .btn-success {
+            background: #2a9d8f;
+        }
+        
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        
+        .connection-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .connected {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+        
+        .disconnected {
+            background: #e63946;
+        }
+        
+        .instructions {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            grid-column: 1 / -1;
+        }
+        
+        .instructions h3 {
+            color: var(--success);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .instructions ul {
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-lock"></i> SecureChat</h1>
+            <p class="subtitle">端对端加密实时聊天系统 - 您的消息在离开设备前已被加密，只有接收方可以解密</p>
+        </header>
+        
+        <!-- Alice的聊天界面 -->
+        <div class="chat-card">
+            <div class="chat-header">
+                <div class="user-info">
+                    <div class="user-avatar">A</div>
+                    <div>
+                        <h3>Alice</h3>
+                        <p>在线</p>
+                    </div>
+                </div>
+                <div class="key-status">
+                    <div class="indicator active"></div>
+                    <span>加密已启用</span>
+                </div>
+            </div>
+            
+            <div class="messages-container" id="alice-messages">
+                <div class="message received">
+                    <div class="sender">Bob</div>
+                    <div class="content">你好 Alice！我们的对话是端对端加密的。</div>
+                    <div class="time">12:00 PM</div>
+                </div>
+                <div class="message sent">
+                    <div class="sender">Alice</div>
+                    <div class="content">我知道，这太棒了！没有人能窃听我们的对话。</div>
+                    <div class="time">12:01 PM</div>
+                </div>
+                <div class="message received">
+                    <div class="sender">Bob</div>
+                    <div class="content">是的，即使是服务器也无法读取我们的消息内容。</div>
+                    <div class="time">12:02 PM</div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <input type="text" class="message-input" id="alice-input" placeholder="输入加密消息...">
+                <button class="send-btn" id="alice-send">
+                    <i class="fas fa-paper-plane"></i> 发送
+                </button>
+            </div>
+        </div>
+        
+        <!-- Bob的聊天界面 -->
+        <div class="chat-card">
+            <div class="chat-header">
+                <div class="user-info">
+                    <div class="user-avatar">B</div>
+                    <div>
+                        <h3>Bob</h3>
+                        <p>在线</p>
+                    </div>
+                </div>
+                <div class="key-status">
+                    <div class="indicator active"></div>
+                    <span>加密已启用</span>
+                </div>
+            </div>
+            
+            <div class="messages-container" id="bob-messages">
+                <div class="message sent">
+                    <div class="sender">Bob</div>
+                    <div class="content">你好 Alice！我们的对话是端对端加密的。</div>
+                    <div class="time">12:00 PM</div>
+                </div>
+                <div class="message received">
+                    <div class="sender">Alice</div>
+                    <div class="content">我知道，这太棒了！没有人能窃听我们的对话。</div>
+                    <div class="time">12:01 PM</div>
+                </div>
+                <div class="message sent">
+                    <div class="sender">Bob</div>
+                    <div class="content">是的，即使是服务器也无法读取我们的消息内容。</div>
+                    <div class="time">12:02 PM</div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <input type="text" class="message-input" id="bob-input" placeholder="输入加密消息...">
+                <button class="send-btn" id="bob-send">
+                    <i class="fas fa-paper-plane"></i> 发送
+                </button>
+            </div>
+        </div>
+        
+        <!-- 调试面板 -->
+        <div class="debug-panel">
+            <div class="debug-header">
+                <h3 class="debug-title">
+                    <i class="fas fa-bug"></i> 加密调试信息
+                </h3>
+                <div class="status-bar">
+                    <div class="connection-indicator connected"></div>
+                    <span>WebSocket 连接正常</span>
+                </div>
+            </div>
+            
+            <div class="debug-info" id="debug-info">
+                // 系统初始化中...
+                // 正在生成RSA密钥对...
+                // 正在建立安全连接...
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn" id="gen-keys-btn">
+                    <i class="fas fa-key"></i> 生成新密钥
+                </button>
+                <button class="btn btn-success" id="simulate-btn">
+                    <i class="fas fa-comments"></i> 模拟对话
+                </button>
+                <button class="btn" id="export-keys-btn">
+                    <i class="fas fa-download"></i> 导出公钥
+                </button>
+                <button class="btn btn-danger" id="clear-btn">
+                    <i class="fas fa-trash"></i> 清除记录
+                </button>
+            </div>
+        </div>
+        
+        <!-- 使用说明 -->
+        <div class="instructions">
+            <h3><i class="fas fa-info-circle"></i> 使用说明</h3>
+            <ul>
+                <li>此应用模拟两个用户（Alice和Bob）之间的端对端加密聊天</li>
+                <li>所有消息在发送前使用接收方的公钥加密，只有接收方的私钥可以解密</li>
+                <li>在左侧聊天框输入消息并发送，消息会出现在右侧聊天框（模拟真实通信）</li>
+                <li>调试面板显示加密/解密过程和密钥信息</li>
+                <li>点击"模拟对话"按钮生成测试对话，测试加密流程</li>
+                <li>将整个页面保存为HTML文件，上传到GitHub Pages即可创建可访问的URL</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // 调试信息输出
+        function debugLog(message) {
+            const debugInfo = document.getElementById('debug-info');
+            debugInfo.textContent += message + '\n';
+            debugInfo.scrollTop = debugInfo.scrollHeight;
+        }
+        
+        // 添加消息到聊天窗口
+        function addMessage(containerId, sender, message, isSent = false) {
+            const container = document.getElementById(containerId);
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+            messageElement.classList.add(isSent ? 'sent' : 'received');
+            
+            const now = new Date();
+            const timeString = now.getHours().toString().padStart(2, '0') + ':' + 
+                              now.getMinutes().toString().padStart(2, '0');
+            
+            messageElement.innerHTML = `
+                <div class="sender">${sender}</div>
+                <div class="content">${message}</div>
+                <div class="time">${timeString}</div>
+            `;
+            
+            container.appendChild(messageElement);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        // 生成RSA密钥对
+        async function generateKeyPair() {
+            debugLog('[Crypto] 正在生成RSA密钥对...');
+            
+            try {
+                const keyPair = await window.crypto.subtle.generateKey(
+                    {
+                        name: "RSA-OAEP",
+                        modulusLength: 2048,
+                        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+                        hash: {name: "SHA-256"},
+                    },
+                    true,
+                    ["encrypt", "decrypt"]
+                );
+                
+                debugLog('[Crypto] RSA密钥对生成成功');
+                
+                // 导出公钥
+                const publicKey = await window.crypto.subtle.exportKey(
+                    "spki",
+                    keyPair.publicKey
+                );
+                
+                const publicKeyBase64 = arrayBufferToBase64(publicKey);
+                debugLog('[Crypto] 公钥: ' + publicKeyBase64.substring(0, 40) + '...');
+                
+                return {
+                    publicKey: publicKeyBase64,
+                    privateKey: keyPair.privateKey
+                };
+            } catch (error) {
+                debugLog('[Crypto] 密钥生成错误: ' + error.message);
+                return null;
+            }
+        }
+        
+        // 加密消息
+        async function encryptMessage(message, publicKeyBase64) {
+            debugLog('[Crypto] 开始加密消息...');
+            
+            try {
+                // 导入公钥
+                const publicKey = await importPublicKey(publicKeyBase64);
+                
+                // 生成临时AES密钥
+                const aesKey = await window.crypto.subtle.generateKey(
+                    { name: "AES-GCM", length: 256 },
+                    true,
+                    ["encrypt", "decrypt"]
+                );
+                
+                // 加密消息
+                const iv = window.crypto.getRandomValues(new Uint8Array(12));
+                const encryptedContent = await window.crypto.subtle.encrypt(
+                    { name: "AES-GCM", iv },
+                    aesKey,
+                    new TextEncoder().encode(message)
+                );
+                
+                // 加密AES密钥
+                const encryptedAesKey = await window.crypto.subtle.encrypt(
+                    { name: "RSA-OAEP" },
+                    publicKey,
+                    await window.crypto.subtle.exportKey("raw", aesKey)
+                );
+                
+                // 组合加密数据
+                const encryptedData = {
+                    iv: arrayBufferToBase64(iv),
+                    content: arrayBufferToBase64(encryptedContent),
+                    key: arrayBufferToBase64(encryptedAesKey)
+                };
+                
+                debugLog('[Crypto] 消息加密成功');
+                return encryptedData;
+            } catch (error) {
+                debugLog('[Crypto] 加密错误: ' + error.message);
+                return null;
+            }
+        }
+        
+        // 解密消息
+        async function decryptMessage(encryptedData, privateKey) {
+            debugLog('[Crypto] 开始解密消息...');
+            
+            try {
+                // 解密AES密钥
+                const encryptedAesKey = base64ToArrayBuffer(encryptedData.key);
+                const decryptedAesKey = await window.crypto.subtle.decrypt(
+                    { name: "RSA-OAEP" },
+                    privateKey,
+                    encryptedAesKey
+                );
+                
+                // 导入AES密钥
+                const aesKey = await window.crypto.subtle.importKey(
+                    "raw",
+                    decryptedAesKey,
+                    { name: "AES-GCM" },
+                    false,
+                    ["decrypt"]
+                );
+                
+                // 解密消息内容
+                const iv = base64ToArrayBuffer(encryptedData.iv);
+                const encryptedContent = base64ToArrayBuffer(encryptedData.content);
+                const decryptedContent = await window.crypto.subtle.decrypt(
+                    { name: "AES-GCM", iv },
+                    aesKey,
+                    encryptedContent
+                );
+                
+                const message = new TextDecoder().decode(decryptedContent);
+                debugLog('[Crypto] 消息解密成功: ' + message.substring(0, 20) + '...');
+                return message;
+            } catch (error) {
+                debugLog('[Crypto] 解密错误: ' + error.message);
+                return '解密失败的消息';
+            }
+        }
+        
+        // 辅助函数：Base64编码
+        function arrayBufferToBase64(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
+        }
+        
+        // 辅助函数：Base64解码
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+        
+        // 导入公钥
+        async function importPublicKey(publicKeyBase64) {
+            const binaryDer = base64ToArrayBuffer(publicKeyBase64);
+            return await window.crypto.subtle.importKey(
+                "spki",
+                binaryDer,
+                { name: "RSA-OAEP", hash: "SHA-256" },
+                true,
+                ["encrypt"]
+            );
+        }
+        
+        // 初始化应用
+        async function initApp() {
+            debugLog('===== SecureChat 初始化 =====');
+            debugLog('[System] 正在加载加密模块...');
+            
+            // 生成Alice和Bob的密钥对
+            const aliceKeys = await generateKeyPair();
+            const bobKeys = await generateKeyPair();
+            
+            debugLog('[System] 密钥交换完成，安全通道已建立');
+            
+            // 模拟消息发送
+            async function sendMessage(from, to, message, fromKeys, toKeys) {
+                // 在发送方界面显示消息
+                addMessage(`${from.toLowerCase()}-messages`, from, message, true);
+                
+                // 加密消息
+                const encryptedData = await encryptMessage(message, toKeys.publicKey);
+                
+                if (encryptedData) {
+                    debugLog(`[Network] ${from} → ${to}: 发送加密消息...`);
+                    
+                    // 模拟网络传输延迟
+                    setTimeout(async () => {
+                        // 接收方解密消息
+                        const decryptedMessage = await decryptMessage(encryptedData, toKeys.privateKey);
+                        
+                        // 在接收方界面显示消息
+                        addMessage(`${to.toLowerCase()}-messages`, from, decryptedMessage, false);
+                    }, 500);
+                }
+            }
+            
+            // Alice发送消息
+            document.getElementById('alice-send').addEventListener('click', async () => {
+                const messageInput = document.getElementById('alice-input');
+                const message = messageInput.value.trim();
+                
+                if (message) {
+                    await sendMessage('Alice', 'Bob', message, aliceKeys, bobKeys);
+                    messageInput.value = '';
+                    messageInput.focus();
+                }
+            });
+            
+            // Bob发送消息
+            document.getElementById('bob-send').addEventListener('click', async () => {
+                const messageInput = document.getElementById('bob-input');
+                const message = messageInput.value.trim();
+                
+                if (message) {
+                    await sendMessage('Bob', 'Alice', message, bobKeys, aliceKeys);
+                    messageInput.value = '';
+                    messageInput.focus();
+                }
+            });
+            
+            // 处理回车键发送
+            document.getElementById('alice-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('alice-send').click();
+                }
+            });
+            
+            document.getElementById('bob-input').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    document.getElementById('bob-send').click();
+                }
+            });
+            
+            // 生成新密钥按钮
+            document.getElementById('gen-keys-btn').addEventListener('click', async () => {
+                debugLog('[System] 用户请求生成新密钥...');
+                aliceKeys = await generateKeyPair();
+                bobKeys = await generateKeyPair();
+                debugLog('[System] 新密钥已生成并存储');
+            });
+            
+            // 模拟对话按钮
+            document.getElementById('simulate-btn').addEventListener('click', async () => {
+                debugLog('[System] 开始模拟加密对话...');
+                
+                const messages = [
+                    { from: 'Alice', to: 'Bob', text: '你好 Bob！' },
+                    { from: 'Bob', to: 'Alice', text: '你好 Alice！' },
+                    { from: 'Alice', to: 'Bob', text: '这是一个端对端加密的聊天测试' },
+                    { from: 'Bob', to: 'Alice', text: '是的，我们的消息在传输过程中是加密的' },
+                    { from: 'Alice', to: 'Bob', text: '即使服务器被入侵，攻击者也无法读取我们的消息内容' },
+                    { from: 'Bob', to: 'Alice', text: '完全正确！这就是端对端加密的强大之处' }
+                ];
+                
+                for (let i = 0; i < messages.length; i++) {
+                    const msg = messages[i];
+                    setTimeout(async () => {
+                        if (msg.from === 'Alice') {
+                            await sendMessage(msg.from, msg.to, msg.text, aliceKeys, bobKeys);
+                        } else {
+                            await sendMessage(msg.from, msg.to, msg.text, bobKeys, aliceKeys);
+                        }
+                    }, 1000 * (i + 1));
+                }
+            });
+            
+            // 导出公钥按钮
+            document.getElementById('export-keys-btn').addEventListener('click', () => {
+                debugLog('[System] Alice公钥:');
+                debugLog(aliceKeys.publicKey);
+                debugLog('[System] Bob公钥:');
+                debugLog(bobKeys.publicKey);
+            });
+            
+            // 清除按钮
+            document.getElementById('clear-btn').addEventListener('click', () => {
+                document.getElementById('debug-info').textContent = '';
+                document.getElementById('alice-messages').innerHTML = '';
+                document.getElementById('bob-messages').innerHTML = '';
+                debugLog('[System] 聊天记录和调试信息已清除');
+            });
+        }
+        
+        // 页面加载完成后初始化应用
+        window.addEventListener('load', initApp);
+    </script>
+</body>
+</html>
